@@ -31,18 +31,36 @@ jobs:
         with:
           gradle-version: '8.9'
 
-            - name: Install Android SDK
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Accept Android SDK licenses
+        run: yes | sdkmanager --licenses
+
+      - name: Install Android SDK packages
         run: |
-          sdkmanager --install "platforms;android-35" "build-tools;35.0.0"
+          sdkmanager "platforms;android-35"
+          sdkmanager "build-tools;35.0.0"
+
+      - name: Find Android project
+        run: |
+          SETTINGS_FILE=$(find source -type f \( -name settings.gradle -o -name settings.gradle.kts \) -print -quit)
+          if [ -z "$SETTINGS_FILE" ]; then
+            echo "Erro: não foi encontrado o projeto Android dentro do ZIP."
+            exit 1
+          fi
+          PROJECT_DIR=$(dirname "$SETTINGS_FILE")
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
       - name: Build APK
         run: |
-          PROJECT_DIR=$(dirname "$(find source -type f -name settings.gradle -o -name settings.gradle.kts | head -n 1)")
           cd "$PROJECT_DIR"
-          gradle --no-daemon assembleDebug
+          gradle --no-daemon --stacktrace assembleDebug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: Dino-Habitacao-APK
-          path: source/**/app/build/outputs/apk/debug/app-debug.apk
+          path: ${{ env.PROJECT_DIR }}/app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+          
